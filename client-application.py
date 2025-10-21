@@ -1,5 +1,13 @@
-import socket, sys, hashlib
+import socket, sys, hashlib, os
 from datetime import datetime
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import os
+
 
 SERVER_IP = input("Enter server IP address (default 127.0.0.1)")
 SERVER_PORT = input("Enter server port (default 2000)")
@@ -12,21 +20,73 @@ if not SERVER_PORT:
 else:
     SERVER_PORT = int(SERVER_PORT)
 
+    
+# Generate AES-256 key from password using PBKDF2
+def generate_aes_key(password: bytes, salt: bytes) -> bytes:
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    key = kdf.derive(password)
+    return key
+
+# Encrypt the file content using AES-256-CBC
+def encrypt_file_content(file_content: bytes, key: bytes) -> bytes:
+    iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(file_content) + padder.finalize()
+    encrypted_content = encryptor.update(padded_data) + encryptor.finalize()
+    return iv + encrypted_content  # Prepend IV for decryption
+
+# Padding the plaintext to be a multiple of AES block size (128-bit / 16-byte)
+def pad_data(data: bytes) -> bytes:
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padded_data = padder.update(data) + padder.finalize()
+    return padded_data
+
+# Decrypt the file content using AES-256-CBC
+def decrypt_file_content(encrypted_content: bytes, key: bytes) -> bytes:
+    iv = encrypted_content[:16]
+    actual_encrypted_content = encrypted_content[16:]
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    padded_data = decryptor.update(actual_encrypted_content) + decryptor.finalize()
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    data = unpadder.update(padded_data) + unpadder.finalize()
+    return data
+
+# Remove padding from the decrypted data
+def unpad_data(padded_data: bytes) -> bytes:
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    data = unpadder.update(padded_data) + unpadder.finalize()
+    return data
+
+# Client-side program to send encrypted file
 def main():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        client_socket.connect((SERVER_IP, SERVER_PORT))
-        print(f"Connected to server at {SERVER_IP}:{SERVER_PORT}")
+    client_socket.connect((SERVER_IP, SERVER_PORT))
+    print(f"Connected to server at {SERVER_IP}:{SERVER_PORT}")
 
-        while True:
-            message = input("Enter message to send (or 'exit' to quit): ")
-            if message.lower() == 'exit':
-                break
-            client_socket.sendall(message.encode())
-            data = client_socket.recv(BUFFER_SIZE)
-            print(f"Received from server: {data.decode()}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    password = b'my_strong_password'  # In assessment, use a secure method to handle passwords
+    salt = os.urandom(16)
+    aes_key = generate_aes_key(password, salt)
+
+    file_path = input("Enter the path of the file to send: ")
+    try:
+        with open(file_path, 'rb') as file:
+            file_content = file.read()
+            encrypted_content = encrypt_file_content(file_content, aes_key)
+
+            # Send salt and encrypted content
+            client_socket.sendall(salt + encrypted_content)
+            print("File sent successfully.")
+    except FileNotFoundError:
+        print("File not found. Please check the path and try again.")
     finally:
         client_socket.close()
         print("Connection closed.")
