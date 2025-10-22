@@ -38,14 +38,14 @@ def encrypt_file_content(file_content: bytes, key: bytes) -> bytes:
     iv = os.urandom(16)
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     encryptor = cipher.encryptor()
-    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padder = padding.PKCS7(128).padder()
     padded_data = padder.update(file_content) + padder.finalize()
     encrypted_content = encryptor.update(padded_data) + encryptor.finalize()
     return iv + encrypted_content  # Prepend IV for decryption
 
 # Padding the plaintext to be a multiple of AES block size (128-bit / 16-byte)
 def pad_data(data: bytes) -> bytes:
-    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padder = padding.PKCS7(128).padder()
     padded_data = padder.update(data) + padder.finalize()
     return padded_data
 
@@ -56,13 +56,13 @@ def decrypt_file_content(encrypted_content: bytes, key: bytes) -> bytes:
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
     padded_data = decryptor.update(actual_encrypted_content) + decryptor.finalize()
-    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    unpadder = padding.PKCS7(128).unpadder()
     data = unpadder.update(padded_data) + unpadder.finalize()
     return data
 
 # Remove padding from the decrypted data
 def unpad_data(padded_data: bytes) -> bytes:
-    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    unpadder = padding.PKCS7(128).unpadder()
     data = unpadder.update(padded_data) + unpadder.finalize()
     return data
 
