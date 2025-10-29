@@ -66,13 +66,39 @@ def unpad_data(padded_data: bytes) -> bytes:
     data = unpadder.update(padded_data) + unpadder.finalize()
     return data
 
+# Encrypted AES Key using RSA 2048
+def encrypt_aes_key(aes_key: bytes, public_key: bytes) -> bytes:
+    from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+
+    public_key_obj = serialization.load_pem_public_key(public_key, backend=default_backend())
+    if not isinstance(public_key_obj, rsa.RSAPublicKey):
+        raise ValueError("Only RSA public keys are supported for encryption")
+    
+    encrypted_key = public_key_obj.encrypt(
+        aes_key,
+        asym_padding.OAEP(
+            mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return encrypted_key
+
+# Add a hash for integrity check on the file SHA-256
+def hash_file_content(file_content: bytes) -> bytes:
+    sha256 = hashlib.sha256()
+    sha256.update(file_content)
+    return sha256.digest()
+
 # Client-side program to send encrypted file
 def main():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((SERVER_IP, SERVER_PORT))
     print(f"Connected to server at {SERVER_IP}:{SERVER_PORT}")
 
-    password = b'my_strong_password'  # In assessment, use a secure method to handle passwords
+    password = b'%Pa55w0rd'  # In assessment, use a secure method to handle passwords
     salt = os.urandom(16)
     aes_key = generate_aes_key(password, salt)
 
