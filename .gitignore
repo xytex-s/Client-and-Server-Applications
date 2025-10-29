@@ -209,3 +209,7 @@ Client-and-Server-Applications.code-workspace
 test_client_application.py
 test_data.txt
 TEST_README.md
+demo_rsa_server.py
+server_private_key.pem
+server_public_key.pem
+SERVER_README.md
