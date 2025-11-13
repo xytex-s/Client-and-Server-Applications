@@ -1,8 +1,24 @@
-# Client and Server Applications for SHU Networking Project
+# Client and Server Applications
 
-This repository contains 2 python files. One of these python files will be a client and the other will be a server.
+A Python client-server application for secure log file transmission.
 
+## What it does
 
-# How to Run these files
+- Client application finds log files and encrypts them with AES-256
+- Server application receives encrypted files, decrypts them, and stores them securely  
+- Uses RSA encryption for key exchange and SHA-256 for integrity verification
+- Monitors log files for changes and automatically sends updates
 
-In order to run these application you must have 2 machines on the same network configured to communicate with each other. You must have both of their IPs and the machines they are running on must have python installed
+## Setup
+
+- Install requirements: `pip install cryptography`
+- Generate RSA keys for the server
+- Configure server IP and port in client application
+- Run server first, then client
+
+## Files
+
+- `client-application.py` - Finds and encrypts log files, sends to server
+- `server-application.py` - Receives encrypted files, decrypts and stores them
+
+Part of SHU Networking Project
