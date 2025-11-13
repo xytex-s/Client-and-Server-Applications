@@ -64,3 +64,79 @@ def verify_digital_signature(public_key, signature: bytes, data: bytes) -> bool:
     except InvalidSignature:
         return False
     
+#Mulrithreaded server to handle multiple clients
+class ThreadedTCPServer(ThreadingMixIn, socket.socket):
+    pass
+
+def handle_client_connection(client_socket, private_key, public_key):
+    try:
+        #Receive data from client
+        received_data = b""
+        while True:
+            chunk = client_socket.recv(4096)
+            if not chunk:
+                break
+            received_data += chunk
+
+        #Extract encrypted key, encrypted content, hash, and signature
+        encrypted_key = received_data[:256]  # Assuming RSA-2048
+        encrypted_content = received_data[256:-64-256]  # Adjust based on actual sizes
+        file_hash = received_data[-64-256:-256]
+        signature = received_data[-256:]
+
+        #Decrypt AES key
+        aes_key = rsa_decrypt(encrypted_key, private_key)
+
+        #Decrypt file content
+        file_content = decrypt_file_content(encrypted_content, aes_key)
+
+        #Verify file hash
+        if not verify_file_hash(file_content, file_hash):
+            print("File hash verification failed.")
+            return
+
+        #Verify digital signature
+        if not verify_digital_signature(public_key, signature, file_content):
+            print("Digital signature verification failed.")
+            return
+
+        #Store the log file securely
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        with open(f"secure_log_{timestamp}.log", "wb") as f:
+            f.write(file_content)
+        print("Log file stored securely.")
+
+    finally:
+        client_socket.close()
+        
+def start_server(host: str = '0.0.0.0', port: int = 12345, private_key=None, public_key=None):
+    server = ThreadedTCPServer()
+    server.bind((host, port))
+    server.listen(5)
+    print(f"Server listening on {host}:{port}")
+
+    while True:
+        client_socket, addr = server.accept()
+        print(f"Accepted connection from {addr}")
+        client_handler = Thread(target=handle_client_connection, args=(client_socket, private_key, public_key))
+        client_handler.start()
+
+if __name__ == "__main__":
+    from cryptography.hazmat.primitives import serialization
+
+    #Load RSA private key
+    with open("private_key.pem", "rb") as key_file:
+        private_key = serialization.load_pem_private_key(
+            key_file.read(),
+            password=None,
+            backend=default_backend()
+        )
+
+    #Load RSA public key
+    with open("public_key.pem", "rb") as key_file:
+        public_key = serialization.load_pem_public_key(
+            key_file.read(),
+            backend=default_backend()
+        )
+
+    start_server(private_key=private_key, public_key=public_key)
