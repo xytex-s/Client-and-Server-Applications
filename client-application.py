@@ -12,6 +12,9 @@ import os
 #Find log files in /var/log
 def find_log_files(directory="/var/log"):
     log_files = []
+    if not os.path.exists(directory):
+        print(f"Directory {directory} does not exist")
+        return log_files
     for root, dirs, files in os.walk(directory):
         for file in files:
             if file.endswith(".log") or file.endswith(".txt"):

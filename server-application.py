@@ -1,5 +1,5 @@
-#Server Application. It will recieve the encrypted log file from the client, decrypt the key using RSA and decrypt the log file using AES. 
-# It will then verify the hash of the log file to ensure integrity and check the digital signature of each log file. then it will store the log files securely.
+#Server Application. It will receive the encrypted log file from the client and decrypt the log file using AES. 
+# It will then verify the hash of the log file to ensure integrity and store the log files securely.
 import socket, sys, hashlib, threading
 from threading import Thread
 from socketserver import ThreadingMixIn
@@ -12,20 +12,16 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import os
 
-#Decrypt the key using RSA private key
-def rsa_decrypt(encrypted_key: bytes, private_key) -> bytes:
-    from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
-    from cryptography.hazmat.primitives import serialization
-
-    decrypted_key = private_key.decrypt(
-        encrypted_key,
-        asym_padding.OAEP(
-            mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
+#Generate AES-256 key from password using PBKDF2 (same as client)
+def generate_aes_key(password: bytes, salt: bytes) -> bytes:
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
     )
-    return decrypted_key
+    return kdf.derive(password)
 
 #Decrypt data with AES-256-CBC
 def decrypt_file_content(encrypted_content: bytes, key: bytes) -> bytes:
@@ -43,33 +39,11 @@ def verify_file_hash(file_content: bytes, expected_hash: bytes) -> bool:
     sha256 = hashlib.sha256()
     sha256.update(file_content)
     return sha256.digest() == expected_hash
-
-#Verify digital signature
-def verify_digital_signature(public_key, signature: bytes, data: bytes) -> bool:
-    from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.exceptions import InvalidSignature
-
-    try:
-        public_key.verify(
-            signature,
-            data,
-            asym_padding.PSS(
-                mgf=asym_padding.MGF1(hashes.SHA256()),
-                salt_length=asym_padding.PSS.MAX_LENGTH
-            ),
-            hashes.SHA256()
-        )
-        return True
-    except InvalidSignature:
-        return False
     
-#Mulrithreaded server to handle multiple clients
-class ThreadedTCPServer(ThreadingMixIn, socket.socket):
-    pass
-
-def handle_client_connection(client_socket, private_key, public_key):
+def handle_client_connection(client_socket, client_addr):
     try:
+        print(f"Handling connection from {client_addr}")
+        
         #Receive data from client
         received_data = b""
         while True:
@@ -78,65 +52,65 @@ def handle_client_connection(client_socket, private_key, public_key):
                 break
             received_data += chunk
 
-        #Extract encrypted key, encrypted content, hash, and signature
-        encrypted_key = received_data[:256]  # Assuming RSA-2048
-        encrypted_content = received_data[256:-64-256]  # Adjust based on actual sizes
-        file_hash = received_data[-64-256:-256]
-        signature = received_data[-256:]
+        print(f"Received {len(received_data)} bytes")
+        
+        if len(received_data) < 16 + 32:  # salt + hash minimum
+            print("Received data too small")
+            return
 
-        #Decrypt AES key
-        aes_key = rsa_decrypt(encrypted_key, private_key)
+        #Extract salt (16 bytes), encrypted content, and hash (32 bytes)
+        salt = received_data[:16]
+        file_hash = received_data[-32:]
+        encrypted_content = received_data[16:-32]
+        
+        print(f"Salt: {len(salt)} bytes, Hash: {len(file_hash)} bytes, Encrypted: {len(encrypted_content)} bytes")
+
+        #Generate AES key (using same password as client)
+        password = b'securepassword'  # Use a secure method to handle passwords
+        aes_key = generate_aes_key(password, salt)
 
         #Decrypt file content
-        file_content = decrypt_file_content(encrypted_content, aes_key)
+        try:
+            file_content = decrypt_file_content(encrypted_content, aes_key)
+            print(f"Decrypted content: {len(file_content)} bytes")
+        except Exception as e:
+            print(f"Decryption failed: {e}")
+            return
 
         #Verify file hash
         if not verify_file_hash(file_content, file_hash):
             print("File hash verification failed.")
             return
 
-        #Verify digital signature
-        if not verify_digital_signature(public_key, signature, file_content):
-            print("Digital signature verification failed.")
-            return
-
         #Store the log file securely
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        with open(f"secure_log_{timestamp}.log", "wb") as f:
+        filename = f"secure_log_{timestamp}.log"
+        with open(filename, "wb") as f:
             f.write(file_content)
-        print("Log file stored securely.")
+        print(f"Log file stored securely as {filename}")
 
+    except Exception as e:
+        print(f"Error handling client: {e}")
     finally:
         client_socket.close()
         
-def start_server(host: str = '0.0.0.0', port: int = 12345, private_key=None, public_key=None):
-    server = ThreadedTCPServer()
-    server.bind((host, port))
-    server.listen(5)
+def start_server(host: str = '0.0.0.0', port: int = 2000):
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((host, port))
+    server_socket.listen(5)
     print(f"Server listening on {host}:{port}")
 
-    while True:
-        client_socket, addr = server.accept()
-        print(f"Accepted connection from {addr}")
-        client_handler = Thread(target=handle_client_connection, args=(client_socket, private_key, public_key))
-        client_handler.start()
+    try:
+        while True:
+            client_socket, addr = server_socket.accept()
+            print(f"Accepted connection from {addr}")
+            client_handler = Thread(target=handle_client_connection, args=(client_socket, addr))
+            client_handler.start()
+    except KeyboardInterrupt:
+        print("Server shutting down...")
+    finally:
+        server_socket.close()
 
 if __name__ == "__main__":
-    from cryptography.hazmat.primitives import serialization
-
-    #Load RSA private key
-    with open("private_key.pem", "rb") as key_file:
-        private_key = serialization.load_pem_private_key(
-            key_file.read(),
-            password=None,
-            backend=default_backend()
-        )
-
-    #Load RSA public key
-    with open("public_key.pem", "rb") as key_file:
-        public_key = serialization.load_pem_public_key(
-            key_file.read(),
-            backend=default_backend()
-        )
-
-    start_server(private_key=private_key, public_key=public_key)
+    start_server()

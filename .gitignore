@@ -215,3 +215,5 @@ server_public_key.pem
 SERVER_README.md
 docker-compose.yml
 Dockerfile
+simple-server.py
+test-client.py
