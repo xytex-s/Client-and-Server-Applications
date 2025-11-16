@@ -7,11 +7,11 @@ from datetime import datetime
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import os
 
-#Generate AES-256 key from password using PBKDF2 (same as client)
 def generate_aes_key(password: str, salt: bytes) -> bytes:
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
@@ -27,7 +27,11 @@ def decrypt_log(encrypted_content: bytes, key: bytes) -> bytes:
     actual_encrypted_content = encrypted_content[16:]
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
-    data = decryptor.update(actual_encrypted_content) + decryptor.finalize()
+    padded_data = decryptor.update(actual_encrypted_content) + decryptor.finalize()
+    
+    
+    unpadder = padding.PKCS7(128).unpadder()
+    data = unpadder.update(padded_data) + unpadder.finalize()
     return data
 
 def verify_log_hash(file_content: bytes, expected_hash: bytes) -> bool:

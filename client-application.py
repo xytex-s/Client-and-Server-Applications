@@ -14,6 +14,17 @@ import os
 
 def discover_logs(directory="/var/log"):
     log_files = []
+    
+    # First try the local test-logs directory for testing
+    test_directory = "test-logs"
+    if os.path.exists(test_directory):
+        print(f"Found test log directory: {test_directory}")
+        for root, dirs, files in os.walk(test_directory):
+            for file in files:
+                if file.endswith(".log") or file.endswith(".txt"):
+                    log_files.append(os.path.join(root, file))
+    
+    # Then try the system log directory
     if not os.path.exists(directory):
         print(f"Log files directory {directory} does not exist")
         return log_files
@@ -33,13 +44,16 @@ def get_aes_key(password: str, salt: bytes) -> bytes:
 	)
 	return kdf.derive(password.encode())
 
-#Encrypt data with AES-256-CBC
+
 def encrypt_log_content(file_content: bytes, key: bytes) -> bytes:
+    padder = padding.PKCS7(128).padder()
+    padded_data = padder.update(file_content) + padder.finalize()
+    
     iv = os.urandom(16) 
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     encryptor = cipher.encryptor()
     
-    encrypted_content = encryptor.update(file_content) + encryptor.finalize()
+    encrypted_content = encryptor.update(padded_data) + encryptor.finalize()
 
     return iv + encrypted_content
 
