@@ -1,6 +1,5 @@
 # Find Linux log files. Encrypt data with AES. Encrypt AES key with RSA. 
 import socket
-import sys
 import hashlib
 import os
 import time

@@ -1,8 +1,8 @@
 #Receive the encrypted log file from the client and decrypt the log file using AES. 
 #It will then verify the hash of the log file to ensure integrity and store the log files securely.
-import socket, sys, hashlib, threading
+import socket 
+import hashlib
 from threading import Thread
-from socketserver import ThreadingMixIn
 from datetime import datetime
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -48,7 +48,7 @@ def handle_client_connection(client_socket, client_addr):
 
         print(f"Received {len(received_data)} bytes")
         
-        if len(received_data) < 16 + 32:  # salt + hash minimum
+        if len(received_data) < 16 + 32:
             print("Received data too small")
             return
 
@@ -58,7 +58,7 @@ def handle_client_connection(client_socket, client_addr):
         
         print(f"Salt: {len(salt)} bytes, Hash: {len(file_hash)} bytes, Encrypted: {len(encrypted_content)} bytes")
 
-        password = '%Pa55w0rd'  # Must match client password
+        password = '%Pa55w0rd'
         aes_key = generate_aes_key(password, salt)
 
         try:
@@ -83,7 +83,7 @@ def handle_client_connection(client_socket, client_addr):
     finally:
         client_socket.close()
         
-def start_server(host: str = '0.0.0.0', port: int = 2000):
+def start_server(host: str = '0.0.0.0', port: int = 2000): #ip and port to listen on for assessment
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((host, port))
