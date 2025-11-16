@@ -73,6 +73,10 @@ def send_log_to_server(server_ip: str, server_port: int, data: bytes):
         print(f"Error sending data to server: {e}")
     finally:
         client_socket.close()
+        
+        
+        
+        
 
 def encrypt_and_send_log_file(log_file: str, password: str = '%Pa55w0rd') -> bool:
     try:
@@ -92,6 +96,9 @@ def encrypt_and_send_log_file(log_file: str, password: str = '%Pa55w0rd') -> boo
     except Exception as e:
         print(f"Error processing {log_file}: {e}")
         return False
+    
+    
+    
         
 def receive_data_from_server(server_ip: str, server_port: int, buffer_size: int = 4096) -> bytes:
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
