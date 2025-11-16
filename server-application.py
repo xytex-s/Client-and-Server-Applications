@@ -1,5 +1,5 @@
-#Server Application. It will receive the encrypted log file from the client and decrypt the log file using AES. 
-# It will then verify the hash of the log file to ensure integrity and store the log files securely.
+#Receive the encrypted log file from the client and decrypt the log file using AES. 
+#It will then verify the hash of the log file to ensure integrity and store the log files securely.
 import socket, sys, hashlib, threading
 from threading import Thread
 from socketserver import ThreadingMixIn
@@ -7,13 +7,12 @@ from datetime import datetime
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import os
 
 #Generate AES-256 key from password using PBKDF2 (same as client)
-def generate_aes_key(password: bytes, salt: bytes) -> bytes:
+def generate_aes_key(password: str, salt: bytes) -> bytes:
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
@@ -21,20 +20,16 @@ def generate_aes_key(password: bytes, salt: bytes) -> bytes:
         iterations=100000,
         backend=default_backend()
     )
-    return kdf.derive(password)
+    return kdf.derive(password.encode())
 
-#Decrypt data with AES-256-CBC
-def decrypt_file_content(encrypted_content: bytes, key: bytes) -> bytes:
+def decrypt_file_content (encrypted_content: bytes, key: bytes) -> bytes:
     iv = encrypted_content[:16]
     actual_encrypted_content = encrypted_content[16:]
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
-    padded_data = decryptor.update(actual_encrypted_content) + decryptor.finalize()
-    unpadder = padding.PKCS7(128).unpadder()
-    data = unpadder.update(padded_data) + unpadder.finalize()
+    data = decryptor.update(actual_encrypted_content) + decryptor.finalize()
     return data
 
-#Verify SHA-256 hash of file content
 def verify_file_hash(file_content: bytes, expected_hash: bytes) -> bool:
     sha256 = hashlib.sha256()
     sha256.update(file_content)
@@ -44,7 +39,6 @@ def handle_client_connection(client_socket, client_addr):
     try:
         print(f"Handling connection from {client_addr}")
         
-        #Receive data from client
         received_data = b""
         while True:
             chunk = client_socket.recv(4096)
@@ -58,18 +52,15 @@ def handle_client_connection(client_socket, client_addr):
             print("Received data too small")
             return
 
-        #Extract salt (16 bytes), encrypted content, and hash (32 bytes)
         salt = received_data[:16]
         file_hash = received_data[-32:]
         encrypted_content = received_data[16:-32]
         
         print(f"Salt: {len(salt)} bytes, Hash: {len(file_hash)} bytes, Encrypted: {len(encrypted_content)} bytes")
 
-        #Generate AES key (using same password as client)
-        password = b'securepassword'  # Use a secure method to handle passwords
+        password = '%Pa55w0rd'  # Must match client password
         aes_key = generate_aes_key(password, salt)
 
-        #Decrypt file content
         try:
             file_content = decrypt_file_content(encrypted_content, aes_key)
             print(f"Decrypted content: {len(file_content)} bytes")
@@ -77,12 +68,10 @@ def handle_client_connection(client_socket, client_addr):
             print(f"Decryption failed: {e}")
             return
 
-        #Verify file hash
         if not verify_file_hash(file_content, file_hash):
             print("File hash verification failed.")
             return
 
-        #Store the log file securely
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         filename = f"secure_log_{timestamp}.log"
         with open(filename, "wb") as f:
