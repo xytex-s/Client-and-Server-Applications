@@ -1,5 +1,4 @@
-#Receive the encrypted log file from the client and decrypt the log file using AES. 
-#It will then verify the hash of the log file to ensure integrity and store the log files securely.
+#Receive the encrypted log file from the client and decrypt the log file using AES. It will then verify the hash of the log file to ensure integrity and store the log files securely.
 import socket 
 import hashlib
 from threading import Thread
@@ -22,7 +21,7 @@ def generate_aes_key(password: str, salt: bytes) -> bytes:
     )
     return kdf.derive(password.encode())
 
-def decrypt_file_content (encrypted_content: bytes, key: bytes) -> bytes:
+def decrypt_log(encrypted_content: bytes, key: bytes) -> bytes:
     iv = encrypted_content[:16]
     actual_encrypted_content = encrypted_content[16:]
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
@@ -30,7 +29,7 @@ def decrypt_file_content (encrypted_content: bytes, key: bytes) -> bytes:
     data = decryptor.update(actual_encrypted_content) + decryptor.finalize()
     return data
 
-def verify_file_hash(file_content: bytes, expected_hash: bytes) -> bool:
+def verify_log_hash(file_content: bytes, expected_hash: bytes) -> bool:
     sha256 = hashlib.sha256()
     sha256.update(file_content)
     return sha256.digest() == expected_hash
@@ -62,13 +61,13 @@ def handle_client_connection(client_socket, client_addr):
         aes_key = generate_aes_key(password, salt)
 
         try:
-            file_content = decrypt_file_content(encrypted_content, aes_key)
+            file_content = decrypt_log(encrypted_content, aes_key)
             print(f"Decrypted content: {len(file_content)} bytes")
         except Exception as e:
             print(f"Decryption failed: {e}")
             return
 
-        if not verify_file_hash(file_content, file_hash):
+        if not verify_log_hash(file_content, file_hash):
             print("File hash verification failed.")
             return
 
