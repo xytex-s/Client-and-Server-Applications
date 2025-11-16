@@ -33,6 +33,7 @@ def verify_log_hash(file_content: bytes, expected_hash: bytes) -> bool:
     sha256 = hashlib.sha256()
     sha256.update(file_content)
     return sha256.digest() == expected_hash
+
     
 def handle_client_connection(client_socket, client_addr):
     try:
@@ -81,6 +82,10 @@ def handle_client_connection(client_socket, client_addr):
         print(f"Error handling client: {e}")
     finally:
         client_socket.close()
+        
+        
+        
+
         
 def start_server(host: str = '0.0.0.0', port: int = 2000): #ip and port to listen on for assessment
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
