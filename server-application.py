@@ -1,4 +1,5 @@
-#Receive the encrypted log file from the client and decrypt the log file using AES. It will then verify the hash of the log file to ensure integrity and store the log files securely.
+#Receive the encrypted log file from the client and decrypt the log file using AES. 
+# It will then verify the hash of the log file to ensure integrity and store the log files securely.
 import socket 
 import hashlib
 from threading import Thread
