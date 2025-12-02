@@ -177,10 +177,13 @@ def manual_send_logs():
     print(f"Found {len(log_files)} log files to send...")
     
     for log_file in log_files:
+        print(f"\n{log_file}")
+        input("Press Enter to send this log file...")
+        
         if encrypt_and_send_log_file(log_file):
-            print(f"Manually sent encrypted log file: {log_file}")
+            print(f"✓ Manually sent encrypted log file: {log_file}")
         else:
-            print(f"Failed to send {log_file}")
+            print(f"✗ Failed to send {log_file}")
         
 if __name__ == "__main__":
     print("Starting log monitoring service...")
