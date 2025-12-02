@@ -98,8 +98,16 @@ def encrypt_and_send_log_file(log_file: str, password: str = '%Pa55w0rd') -> boo
         with open(log_file, 'rb') as f:
             file_content = f.read()
 
+        # Key exchange process
+        print("\n=== CLIENT: Key Exchange Process ===")
         salt = os.urandom(16)
+        print(f"Generated salt: {salt.hex()[:32]}...")
+        print(f"Using password: {'*' * len(password)}")
+        print("Deriving AES-256 key using PBKDF2-HMAC-SHA256...")
         aes_key = get_aes_key(password, salt)
+        print(f"Derived AES key: {aes_key.hex()[:32]}... (32 bytes)")
+        print(f"Sending salt to server for key derivation")
+        print("===================================\n")
 
         encrypted_content = encrypt_log_content(file_content, aes_key)
         file_hash = generate_log_hash(file_content)

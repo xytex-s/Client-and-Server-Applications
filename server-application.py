@@ -63,8 +63,16 @@ def handle_client_connection(client_socket, client_addr):
         
         print(f"Salt: {len(salt)} bytes, Hash: {len(file_hash)} bytes, Encrypted: {len(encrypted_content)} bytes")
 
+        # Key exchange process
+        print("\n=== SERVER: Key Exchange Process ===")
+        print(f"Received salt from client: {salt.hex()[:32]}...")
         password = '%Pa55w0rd'
+        print(f"Using password: {'*' * len(password)}")
+        print("Deriving same AES-256 key using PBKDF2-HMAC-SHA256...")
         aes_key = generate_aes_key(password, salt)
+        print(f"Derived AES key: {aes_key.hex()[:32]}... (32 bytes)")
+        print("Key exchange complete - both sides have same symmetric key")
+        print("===================================\n")
 
         try:
             file_content = decrypt_log(encrypted_content, aes_key)
