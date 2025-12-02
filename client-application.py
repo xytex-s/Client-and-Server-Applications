@@ -3,6 +3,7 @@ import socket
 import hashlib
 import os
 import time
+from datetime import datetime
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
@@ -149,20 +150,43 @@ def main():
         
 def monitor_and_send_logs(interval: int = 60):
     previous_hashes = {}
+    last_sent_date = {}
     print(f"Starting log monitoring with {interval}s interval...")
+    print("Logs will be sent at 5:00 PM daily or when content changes")
     
     while True:
         log_files = discover_logs()
+        current_time = datetime.now()
+        current_date = current_time.date()
+        current_hour = current_time.hour
+        
         for log_file in log_files:
             try:
                 with open(log_file, 'rb') as f:
                     file_content = f.read()
                 current_hash = generate_log_hash(file_content)
 
-                if log_file not in previous_hashes or previous_hashes[log_file] != current_hash:
+                should_send_at_5pm = (current_hour == 17 and 
+                                      last_sent_date.get(log_file) != current_date)
+                
+                hash_changed = (log_file not in previous_hashes or 
+                               previous_hashes[log_file] != current_hash)
+                
+                if should_send_at_5pm or hash_changed:
                     if encrypt_and_send_log_file(log_file):
+                        reason = []
+                        if should_send_at_5pm:
+                            reason.append("5 PM daily send")
+                        if hash_changed:
+                            reason.append("hash changed")
+                        
                         print(f"Sent updated encrypted log file: {log_file}")
+                        if reason:
+                            print(f"  Reason: {', '.join(reason)}")
+                        
                         previous_hashes[log_file] = current_hash
+                        if should_send_at_5pm:
+                            last_sent_date[log_file] = current_date
                     else:
                         print(f"Failed to send updated log file: {log_file}")
             except FileNotFoundError:
