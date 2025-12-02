@@ -89,7 +89,21 @@ def handle_client_connection(client_socket, client_addr):
         filename = f"secure_log_{timestamp}.log"
         with open(filename, "wb") as f:
             f.write(file_content)
-        print(f"Log file stored securely as {filename}")
+        
+        # Set file permissions to root only (600) - requires sudo to read
+        try:
+            os.chmod(filename, 0o600)  # Owner read/write only
+            if hasattr(os, 'chown'):
+                os.chown(filename, 0, 0)    # Change owner to root (UID 0, GID 0)
+                print(f"Log file stored securely as {filename}")
+                print(f"File permissions set to root-only access (requires sudo to read)")
+            else:
+                # Windows system
+                print(f"Log file stored as {filename}")
+                print("Note: Root ownership not set (Windows system)")
+        except PermissionError:
+            print(f"Log file stored as {filename}")
+            print("Warning: Unable to set root ownership (run server with sudo for full security)")
 
     except Exception as e:
         print(f"Error handling client: {e}")
