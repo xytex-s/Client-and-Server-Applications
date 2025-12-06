@@ -10,7 +10,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
-import os
+
 
 
 def discover_logs(directory="/var/log"):
@@ -19,7 +19,7 @@ def discover_logs(directory="/var/log"):
     # First try the local test-logs directory for testing
     test_directory = "test-logs"
     if os.path.exists(test_directory):
-        print(f"Found test log directory: {test_directory}")
+        print("Found test log directory: {test_directory}")
         for root, dirs, files in os.walk(test_directory):
             for file in files:
                 if file.endswith(".log") or file.endswith(".txt"):
@@ -27,7 +27,7 @@ def discover_logs(directory="/var/log"):
     
     # Then try the system log directory
     if not os.path.exists(directory):
-        print(f"Log files directory {directory} does not exist")
+        print("Log files directory {directory} does not exist")
         return log_files
     for root, dirs, files in os.walk(directory):
         for file in files:
@@ -83,9 +83,9 @@ def send_log_to_server(server_ip: str, server_port: int, data: bytes):
     try:
         client_socket.connect((server_ip, server_port))
         client_socket.sendall(data)
-        print(f"Successfully sent {len(data)} bytes to server")
+        print("Successfully sent {len(data)} bytes to server")
     except Exception as e:
-        print(f"Error sending data to server: {e}")
+        print("Error sending data to server: {e}")
     finally:
         client_socket.close()
         
@@ -101,12 +101,12 @@ def encrypt_and_send_log_file(log_file: str, password: str = '%Pa55w0rd') -> boo
         # Key exchange process
         print("\n=== CLIENT: Key Exchange Process ===")
         salt = os.urandom(16)
-        print(f"Generated salt: {salt.hex()[:32]}...")
-        print(f"Using password: {'*' * len(password)}")
+        print("Generated salt: {salt.hex()[:32]}...")
+        print("Using password: {'*' * len(password)}")
         print("Deriving AES-256 key using PBKDF2-HMAC-SHA256...")
         aes_key = get_aes_key(password, salt)
-        print(f"Derived AES key: {aes_key.hex()[:32]}... (32 bytes)")
-        print(f"Sending salt to server for key derivation")
+        print("Derived AES key: {aes_key.hex()[:32]}... (32 bytes)")
+        print("Sending salt to server for key derivation")
         print("===================================\n")
 
         encrypted_content = encrypt_log_content(file_content, aes_key)
@@ -117,7 +117,7 @@ def encrypt_and_send_log_file(log_file: str, password: str = '%Pa55w0rd') -> boo
         
         return True
     except Exception as e:
-        print(f"Error processing {log_file}: {e}")
+        print("Error processing {log_file}: {e}")
         return False
     
     
@@ -135,7 +135,7 @@ def receive_data_from_server(server_ip: str, server_port: int, buffer_size: int 
             received_data += chunk
         return received_data
     except Exception as e:
-        print(f"Failed to receive data from server: {e}")
+        print("Failed to receive data from server: {e}")
         return b""
     finally:
         client_socket.close()
@@ -152,14 +152,14 @@ def main():
 
     for log_file in log_files:
         if encrypt_and_send_log_file(log_file):
-            print(f"Sent encrypted log file: {log_file}")
+            print("Sent encrypted log file: {log_file}")
         else:
-            print(f"Failed to send {log_file}")
+            print("Failed to send {log_file}")
         
 def monitor_and_send_logs(interval: int = 60):
     previous_hashes = {}
     last_sent_date = {}
-    print(f"Starting log monitoring with {interval}s interval...")
+    print("Starting log monitoring with {interval}s interval...")
     print("Logs will be sent at 5:00 PM daily or when content changes")
     
     while True:
@@ -188,34 +188,34 @@ def monitor_and_send_logs(interval: int = 60):
                         if hash_changed:
                             reason.append("hash changed")
                         
-                        print(f"Sent updated encrypted log file: {log_file}")
+                        print("Sent updated encrypted log file: {log_file}")
                         if reason:
-                            print(f"  Reason: {', '.join(reason)}")
+                            print("  Reason: {', '.join(reason)}")
                         
                         previous_hashes[log_file] = current_hash
                         if should_send_at_5pm:
                             last_sent_date[log_file] = current_date
                     else:
-                        print(f"Failed to send updated log file: {log_file}")
+                        print("Failed to send updated log file: {log_file}")
             except FileNotFoundError:
-                print(f"Warning: Log file {log_file} not found")
+                print("Warning: Log file {log_file} not found")
             except Exception as e:
-                print(f"Error processing {log_file}: {e}")
+                print("Error processing {log_file}: {e}")
                 
         time.sleep(interval)
         
 def manual_send_logs():
     log_files = discover_logs()
-    print(f"Found {len(log_files)} log files to send...")
+    print("Found {len(log_files)} log files to send...")
     
     for log_file in log_files:
-        print(f"\n{log_file}")
+        print("\n{log_file}")
         input("Press Enter to send this log file...")
         
         if encrypt_and_send_log_file(log_file):
-            print(f"✓ Manually sent encrypted log file: {log_file}")
+            print("✓ Manually sent encrypted log file: {log_file}")
         else:
-            print(f"✗ Failed to send {log_file}")
+            print("✗ Failed to send {log_file}")
         
 if __name__ == "__main__":
     print("Starting log monitoring service...")
