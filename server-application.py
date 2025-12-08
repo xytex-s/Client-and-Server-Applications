@@ -1,5 +1,4 @@
-#Receive the encrypted log file from the client and decrypt the log file using AES. 
-# It will then verify the hash of the log file to ensure integrity and store the log files securely.
+# Receive encrypted log file, decrypt, verify hash, store safely
 import socket 
 import hashlib
 from threading import Thread
@@ -12,7 +11,8 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import os
 
-def generate_aes_key(password: str, salt: bytes) -> bytes:
+
+def generate_aes_key(password, salt):
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
@@ -22,27 +22,28 @@ def generate_aes_key(password: str, salt: bytes) -> bytes:
     )
     return kdf.derive(password.encode())
 
-def decrypt_log(encrypted_content: bytes, key: bytes) -> bytes:
+
+def decrypt_log(encrypted_content, key):
     iv = encrypted_content[:16]
     actual_encrypted_content = encrypted_content[16:]
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
     padded_data = decryptor.update(actual_encrypted_content) + decryptor.finalize()
     
-    
     unpadder = padding.PKCS7(128).unpadder()
     data = unpadder.update(padded_data) + unpadder.finalize()
     return data
 
-def verify_log_hash(file_content: bytes, expected_hash: bytes) -> bool:
+
+def verify_log_hash(file_content, expected_hash):
     sha256 = hashlib.sha256()
     sha256.update(file_content)
     return sha256.digest() == expected_hash
 
-    
+
 def handle_client_connection(client_socket, client_addr):
     try:
-        print("Handling connection from {client_addr}")
+        print("Handling connection from {}".format(client_addr))
         
         received_data = b""
         while True:
@@ -51,9 +52,9 @@ def handle_client_connection(client_socket, client_addr):
                 break
             received_data += chunk
 
-        print("Received {len(received_data)} bytes")
+        print("Received {} bytes".format(len(received_data)))
         
-        if len(received_data) < 16 + 32:
+        if len(received_data) < 48:
             print("Received data too small")
             return
 
@@ -61,24 +62,25 @@ def handle_client_connection(client_socket, client_addr):
         file_hash = received_data[-32:]
         encrypted_content = received_data[16:-32]
         
-        print("Salt: {len(salt)} bytes, Hash: {len(file_hash)} bytes, Encrypted: {len(encrypted_content)} bytes")
+        print("Salt: {} bytes, Hash: {} bytes, Encrypted: {} bytes".format(
+            len(salt), len(file_hash), len(encrypted_content)
+        ))
 
-        # Key exchange process
         print("\n=== SERVER: Key Exchange Process ===")
-        print("Received salt from client: {salt.hex()[:32]}...")
+        print("Received salt from client: {}...".format(salt.hex()[:32]))
         password = '%Pa55w0rd'
-        print("Using password: {'*' * len(password)}")
-        print("Deriving same AES-256 key using PBKDF2-HMAC-SHA256...")
+        print("Using password: {}".format('*' * len(password)))
+        print("Deriving AES-256 key using PBKDF2-HMAC-SHA256...")
         aes_key = generate_aes_key(password, salt)
-        print("Derived AES key: {aes_key.hex()[:32]}... (32 bytes)")
+        print("Derived AES key: {}... (32 bytes)".format(aes_key.hex()[:32]))
         print("Key exchange complete - both sides have same symmetric key")
         print("===================================\n")
 
         try:
             file_content = decrypt_log(encrypted_content, aes_key)
-            print("Decrypted content: {len(file_content)} bytes")
+            print("Decrypted content: {} bytes".format(len(file_content)))
         except Exception as e:
-            print("Decryption failed: {e}")
+            print("Decryption failed: {}".format(e))
             return
 
         if not verify_log_hash(file_content, file_hash):
@@ -86,51 +88,47 @@ def handle_client_connection(client_socket, client_addr):
             return
 
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        filename = "secure_log_{timestamp}.log"
+        filename = "secure_log_{}.log".format(timestamp)
         with open(filename, "wb") as f:
             f.write(file_content)
         
-        # Set file permissions to root only (600) - requires sudo to read
         try:
-            os.chmod(filename, 0o600)  # Owner read/write only
+            os.chmod(filename, 0o600)
             if hasattr(os, 'chown'):
-                os.chown(filename, 0, 0)    # Change owner to root (UID 0, GID 0)
-                print("Log file stored securely as {filename}")
-                print("File permissions set to root-only access (requires sudo to read)")
+                os.chown(filename, 0, 0)
+                print("Log file stored securely as {}".format(filename))
+                print("File permissions set to root-only access")
             else:
-                # Windows system
-                print("Log file stored as {filename}")
-                print("Note: Root ownership not set (Windows system)")
+                print("Log file stored as {}".format(filename))
+                print("Root ownership not available on this platform")
         except PermissionError:
-            print(f"Log file stored as {filename}")
-            print("Warning: Unable to set root ownership (run server with sudo for full security)")
+            print("Log file stored as {}".format(filename))
+            print("Warning: Unable to set root ownership (run with sudo)")
 
     except Exception as e:
-        print("Error handling client: {e}")
+        print("Error handling client: {}".format(e))
     finally:
         client_socket.close()
-        
-        
-        
 
-        
-def start_server(host: str = '0.0.0.0', port: int = 2000): #ip and port to listen on for assessment
+
+def start_server(host='0.0.0.0', port=2000):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((host, port))
     server_socket.listen(5)
-    print(f"Server listening on {host}:{port}")
+    print("Server listening on {}:{}".format(host, port))
 
     try:
         while True:
             client_socket, addr = server_socket.accept()
-            print(f"Accepted connection from {addr}")
+            print("Accepted connection from {}".format(addr))
             client_handler = Thread(target=handle_client_connection, args=(client_socket, addr))
             client_handler.start()
     except KeyboardInterrupt:
         print("Server shutting down...")
     finally:
         server_socket.close()
+
 
 if __name__ == "__main__":
     start_server()
