@@ -42,7 +42,7 @@ def verify_log_hash(file_content: bytes, expected_hash: bytes) -> bool:
     
 def handle_client_connection(client_socket, client_addr):
     try:
-        print(f"Handling connection from {client_addr}")
+        print("Handling connection from {client_addr}")
         
         received_data = b""
         while True:
@@ -51,7 +51,7 @@ def handle_client_connection(client_socket, client_addr):
                 break
             received_data += chunk
 
-        print(f"Received {len(received_data)} bytes")
+        print("Received {len(received_data)} bytes")
         
         if len(received_data) < 16 + 32:
             print("Received data too small")
@@ -61,24 +61,24 @@ def handle_client_connection(client_socket, client_addr):
         file_hash = received_data[-32:]
         encrypted_content = received_data[16:-32]
         
-        print(f"Salt: {len(salt)} bytes, Hash: {len(file_hash)} bytes, Encrypted: {len(encrypted_content)} bytes")
+        print("Salt: {len(salt)} bytes, Hash: {len(file_hash)} bytes, Encrypted: {len(encrypted_content)} bytes")
 
         # Key exchange process
         print("\n=== SERVER: Key Exchange Process ===")
-        print(f"Received salt from client: {salt.hex()[:32]}...")
+        print("Received salt from client: {salt.hex()[:32]}...")
         password = '%Pa55w0rd'
-        print(f"Using password: {'*' * len(password)}")
+        print("Using password: {'*' * len(password)}")
         print("Deriving same AES-256 key using PBKDF2-HMAC-SHA256...")
         aes_key = generate_aes_key(password, salt)
-        print(f"Derived AES key: {aes_key.hex()[:32]}... (32 bytes)")
+        print("Derived AES key: {aes_key.hex()[:32]}... (32 bytes)")
         print("Key exchange complete - both sides have same symmetric key")
         print("===================================\n")
 
         try:
             file_content = decrypt_log(encrypted_content, aes_key)
-            print(f"Decrypted content: {len(file_content)} bytes")
+            print("Decrypted content: {len(file_content)} bytes")
         except Exception as e:
-            print(f"Decryption failed: {e}")
+            print("Decryption failed: {e}")
             return
 
         if not verify_log_hash(file_content, file_hash):
@@ -86,7 +86,7 @@ def handle_client_connection(client_socket, client_addr):
             return
 
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        filename = f"secure_log_{timestamp}.log"
+        filename = "secure_log_{timestamp}.log"
         with open(filename, "wb") as f:
             f.write(file_content)
         
@@ -95,18 +95,18 @@ def handle_client_connection(client_socket, client_addr):
             os.chmod(filename, 0o600)  # Owner read/write only
             if hasattr(os, 'chown'):
                 os.chown(filename, 0, 0)    # Change owner to root (UID 0, GID 0)
-                print(f"Log file stored securely as {filename}")
-                print(f"File permissions set to root-only access (requires sudo to read)")
+                print("Log file stored securely as {filename}")
+                print("File permissions set to root-only access (requires sudo to read)")
             else:
                 # Windows system
-                print(f"Log file stored as {filename}")
+                print("Log file stored as {filename}")
                 print("Note: Root ownership not set (Windows system)")
         except PermissionError:
             print(f"Log file stored as {filename}")
             print("Warning: Unable to set root ownership (run server with sudo for full security)")
 
     except Exception as e:
-        print(f"Error handling client: {e}")
+        print("Error handling client: {e}")
     finally:
         client_socket.close()
         
